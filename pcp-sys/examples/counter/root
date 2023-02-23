@@ -1,0 +1,6 @@
+#include <stdpmid>
+#include "domain.h"
+
+root { counter }
+
+#include "pmns"

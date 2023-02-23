@@ -1,0 +1,4 @@
+counter {
+    up1	COUNTER:0:0
+    up2	COUNTER:0:1
+}
