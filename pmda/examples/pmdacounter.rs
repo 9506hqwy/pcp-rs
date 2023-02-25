@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use pmda::*;
 use pmda_sys::*;
-use std::ffi::{CString, NulError};
+use std::ffi::NulError;
 use std::sync::Mutex;
 
 const DOMAIN: u32 = 450;
@@ -30,36 +30,38 @@ fn metric_up2() -> pmdaMetric {
     metric
 }
 
-fn count_up1(atom: *mut pmAtomValue) -> i32 {
+fn count_up1(atom: &mut AtomValue) -> i32 {
     let mut cnt = COUNTER.lock().unwrap();
     *cnt += 1;
 
-    unsafe { (*atom).ull = *cnt };
+    atom.set_u64(*cnt);
     return 0;
 }
 
-fn count_up2(atom: *mut pmAtomValue) -> i32 {
+fn count_up2(atom: &mut AtomValue) -> i32 {
     let mut cnt = COUNTER.lock().unwrap();
     *cnt += 2;
 
-    unsafe { (*atom).ull = *cnt };
+    atom.set_u64(*cnt);
     return 0;
 }
 
-extern "C" fn counter_fetch(metrics: *mut pmdaMetric, inst: u32, atom: *mut pmAtomValue) -> i32 {
+extern "C" fn counter_fetch(metric: *mut pmdaMetric, inst: u32, atom: *mut pmAtomValue) -> i32 {
     if inst != PM_IN_NULL {
         return PM_ERR_INST;
     }
 
-    let cluster = unsafe { get_pmid_cluster((*metrics).m_desc.pmid) };
-    if cluster != 0 {
+    let metric = Metric::new(metric);
+
+    if metric.desc().id().cluster() != 0 {
         return PM_ERR_PMID;
     }
 
-    let item = unsafe { get_pmid_item((*metrics).m_desc.pmid) };
-    match item {
-        0 => count_up1(atom),
-        1 => count_up2(atom),
+    let mut atom = AtomValue::new(atom);
+
+    match metric.desc().id().item() {
+        0 => count_up1(&mut atom),
+        1 => count_up2(&mut atom),
         _ => PM_ERR_PMID,
     }
 }
@@ -71,18 +73,20 @@ fn main() -> Result<(), NulError> {
     let mut dispatch = Interface::default();
     pmda.set_daemon(&mut dispatch, DOMAIN);
 
-    let short_options = CString::new("D:d:h:l:U:?")?;
     let mut long_options = vec![
         pmdaopt_header(),
         pmdaopt_debug(),
         pmdaopt_domain(),
         pmdaopt_helptext(),
+        pmdaopt_inet(),
         pmdaopt_logfile(),
+        pmdaopt_pipe(),
+        pmdaopt_unix(),
         pmdaopt_username(),
         pmdaopt_end(),
     ];
 
-    let mut options = pmda_options(&short_options, &mut long_options);
+    let mut options = pmda_options(pmdaopt(), &mut long_options);
 
     dispatch.get_options(&mut options);
     if options.errors != 0 {
@@ -94,7 +98,7 @@ fn main() -> Result<(), NulError> {
 
     pmda.set_uid();
 
-    dispatch.set_fetch_callback(counter_fetch);
+    dispatch.set_fetch_callback(Some(counter_fetch));
 
     let mut metrics = vec![metric_up1(), metric_up2()];
 

@@ -1,6 +1,10 @@
 #include <pcp/pmapi.h>
 #include <pcp/pmda.h>
 
+char* pmda_opt() {
+  return PMDA_OPTIONS;
+}
+
 pmLongOptions pmda_opt_header() {
   pmLongOptions s = PMDA_OPTIONS_HEADER("Options");
   return s;
@@ -54,4 +58,8 @@ pmLongOptions pmda_opt_unix() {
 pmLongOptions pmda_opt_username() {
   pmLongOptions s = PMDAOPT_USERNAME;
   return s;
+}
+
+pmID pmda_pmid(unsigned int cluster, unsigned int item) {
+  return PMDA_PMID(cluster, item);
 }

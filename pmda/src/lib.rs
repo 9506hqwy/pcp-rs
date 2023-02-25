@@ -64,6 +64,7 @@ impl Interface {
             .iter()
             .map(|c| c.as_ptr() as *mut i8)
             .collect::<Vec<_>>();
+
         unsafe { pmdaGetOptions(args.len() as i32, argv.as_ptr(), opts, &mut self.dispatch) }
     }
 
@@ -93,7 +94,7 @@ impl Interface {
         name: &CStr,
         domain: u32,
         logfile: &CStr,
-        helpText: &CStr,
+        help_text: &CStr,
     ) {
         unsafe {
             pmdaDaemon(
@@ -102,25 +103,102 @@ impl Interface {
                 name.as_ptr(),
                 domain as i32,
                 logfile.as_ptr(),
-                helpText.as_ptr(),
+                help_text.as_ptr(),
             )
         };
     }
 
     pub fn set_fetch_callback(
         &mut self,
-        callback: extern "C" fn(*mut pmdaMetric, u32, *mut pmAtomValue) -> i32,
+        callback: Option<unsafe extern "C" fn(*mut pmdaMetric, u32, *mut pmAtomValue) -> i32>,
     ) {
-        unsafe { pmdaSetFetchCallBack(&mut self.dispatch, Some(callback)) };
+        unsafe { pmdaSetFetchCallBack(&mut self.dispatch, callback) };
     }
 }
 
-pub fn get_pmid_cluster(id: pmID) -> u32 {
-    unsafe { pmID_cluster(id) }
+pub struct Id {
+    inner: *mut pmID,
 }
 
-pub fn get_pmid_item(id: pmID) -> u32 {
-    unsafe { pmID_item(id) }
+impl Id {
+    pub fn new(id: *mut pmID) -> Self {
+        Id { inner: id }
+    }
+
+    pub fn cluster(&self) -> u32 {
+        unsafe { get_pmid_cluster(*self.inner) }
+    }
+
+    pub fn item(&self) -> u32 {
+        unsafe { get_pmid_item(*self.inner) }
+    }
+}
+
+pub struct Desc {
+    inner: *mut pmDesc,
+}
+
+impl Desc {
+    pub fn new(desc: *mut pmDesc) -> Self {
+        Desc { inner: desc }
+    }
+
+    pub fn id(&self) -> Id {
+        unsafe { Id::new(&mut (*self.inner).pmid) }
+    }
+}
+
+pub struct Metric {
+    inner: *mut pmdaMetric,
+}
+
+impl Metric {
+    pub fn new(metric: *mut pmdaMetric) -> Self {
+        Metric { inner: metric }
+    }
+
+    pub fn desc(&self) -> Desc {
+        unsafe { Desc::new(&mut (*self.inner).m_desc) }
+    }
+}
+
+pub struct AtomValue {
+    inner: *mut pmAtomValue,
+}
+
+impl AtomValue {
+    pub fn new(atom: *mut pmAtomValue) -> Self {
+        AtomValue { inner: atom }
+    }
+
+    pub fn set_i32(&mut self, value: i32) {
+        unsafe { (*self.inner).l = value };
+    }
+
+    pub fn set_u32(&mut self, value: u32) {
+        unsafe { (*self.inner).ul = value };
+    }
+
+    pub fn set_i64(&mut self, value: i64) {
+        unsafe { (*self.inner).ll = value };
+    }
+
+    pub fn set_u64(&mut self, value: u64) {
+        unsafe { (*self.inner).ull = value };
+    }
+
+    pub fn set_f32(&mut self, value: f32) {
+        unsafe { (*self.inner).f = value };
+    }
+
+    pub fn set_f64(&mut self, value: f64) {
+        unsafe { (*self.inner).d = value };
+    }
+}
+
+pub fn pmdaopt() -> &'static CStr {
+    let buffer = unsafe { pmda_opt() };
+    unsafe { CStr::from_ptr(buffer) }
 }
 
 pub fn pmdaopt_header() -> pmLongOptions {
@@ -179,7 +257,7 @@ pub fn pmda_print_usage(options: &mut pmdaOptions) {
 }
 
 pub fn pm_id(cluster: u32, item: u32) -> u32 {
-    (cluster & 0x0fff) << 10 | (item & 0x03ff)
+    unsafe { pmda_pmid(cluster, item) }
 }
 
 fn get_config(name: &str) -> Result<String, Box<dyn Error>> {
@@ -188,6 +266,14 @@ fn get_config(name: &str) -> Result<String, Box<dyn Error>> {
 
     let value = unsafe { CStr::from_ptr(buffer) };
     Ok(value.to_owned().into_string()?)
+}
+
+fn get_pmid_cluster(id: pmID) -> u32 {
+    unsafe { pmID_cluster(id) }
+}
+
+fn get_pmid_item(id: pmID) -> u32 {
+    unsafe { pmID_item(id) }
 }
 
 fn get_username() -> &'static CStr {
@@ -223,7 +309,7 @@ mod tests {
 
         dispatch.open_log();
 
-        dispatch.set_fetch_callback(test_fetch);
+        dispatch.set_fetch_callback(Some(test_fetch));
 
         let mut metric = pmdaMetric::default();
         metric.m_desc = pmDesc::default();
