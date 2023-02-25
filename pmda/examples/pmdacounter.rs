@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use pmda::*;
 use pmda_sys::*;
 use std::ffi::{CString, NulError};
 use std::sync::Mutex;
