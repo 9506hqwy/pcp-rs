@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "pcp-sys",
+    "pmda-sys",
 ]
 
 [profile.release]
