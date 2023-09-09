@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: [ main ]
-    tags-ignore: [ '*' ]
+    tags-ignore: [ '**' ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -11,20 +11,69 @@ env:
 jobs:
   build:
 
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+
+    - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y pcp libpcp3 libpcp3-dev libpcp-pmda3 libpcp-pmda3-dev
-    - name: Build
-      run: cargo build --examples --verbose
+        sudo apt install -y \
+            pcp \
+            libpcp3 \
+            libpcp3-dev \
+            libpcp-pmda3 \
+            libpcp-pmda3-dev
+
+    - name: Check format
+      run: cargo fmt --all --check
+
+    - name: Check lint
+      run: |
+        cargo clippy --fix
+        git diff --exit-code --quiet
+
     - name: Run tests
+      env:
+        RUSTFLAGS: '-C instrument-coverage'
       run: cargo test --verbose
+
+    - name: Generate coverage report
+      env:
+        RUSTFLAGS: '-C instrument-coverage'
+      run: |
+        rustup component add llvm-tools-preview
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+
+        TARGET_HOST=$(rustup show active-toolchain | sed -e 's/[^-]*-\(.*\)\s.*/\1/')
+        TEST_BIN=$(cargo test --no-run 2>&1 | grep Executable | cut -d '(' -f 2 | cut -d ')' -f 1)
+
+        $(rustc --print sysroot)/lib/rustlib/${TARGET_HOST}/bin/llvm-profdata merge \
+            -sparse pmda-sys/default_*.profraw \
+            -sparse pmda/default_*.profraw \
+            -o default.profdata
+
+        $(rustc --print sysroot)/lib/rustlib/${TARGET_HOST}/bin/llvm-cov export \
+            --ignore-filename-regex='library/std/src' \
+            --ignore-filename-regex='cargo/registry/src' \
+            --object=${TEST_BIN} \
+            --instr-profile=default.profdata \
+            --format=lcov \
+            > coverage.lcov
+
+        reportgenerator -reports:coverage.lcov -targetdir:"./artifacts" -reporttypes:"MarkdownSummaryGithub;TextSummary"
+
+        $(rustc --print sysroot)/lib/rustlib/${TARGET_HOST}/bin/llvm-cov report \
+            --ignore-filename-regex='library/std/src' \
+            --ignore-filename-regex='cargo/registry/src' \
+            --object=${TEST_BIN} \
+            --instr-profile=default.profdata \
+            > Summary.txt
+
+        cat Summary.txt
+
+    - name: Report coverage
+      run: |
+        cat "./artifacts/Summary.txt"
+        cat "./artifacts/SummaryGithub.md" > $GITHUB_STEP_SUMMARY
