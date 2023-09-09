@@ -9,25 +9,29 @@ const DOMAIN: u32 = 450;
 static COUNTER: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 
 fn metric_up1() -> pmdaMetric {
-    let mut metric = pmdaMetric::default();
-    metric.m_desc = pmDesc::default();
-    metric.m_desc.pmid = pm_id(0, 0);
-    metric.m_desc.type_ = PM_TYPE_U64 as i32;
-    metric.m_desc.indom = PM_INDOM_NULL;
-    metric.m_desc.sem = PM_SEM_INSTANT as i32;
-    metric.m_desc.units = pmUnits::default();
-    metric
+    pmdaMetric {
+        m_desc: pmDesc {
+            pmid: pm_id(0, 0),
+            type_: PM_TYPE_U64 as i32,
+            indom: PM_INDOM_NULL,
+            sem: PM_SEM_INSTANT as i32,
+            units: pmUnits::default(),
+        },
+        ..Default::default()
+    }
 }
 
 fn metric_up2() -> pmdaMetric {
-    let mut metric = pmdaMetric::default();
-    metric.m_desc = pmDesc::default();
-    metric.m_desc.pmid = pm_id(0, 1);
-    metric.m_desc.type_ = PM_TYPE_U64 as i32;
-    metric.m_desc.indom = PM_INDOM_NULL;
-    metric.m_desc.sem = PM_SEM_INSTANT as i32;
-    metric.m_desc.units = pmUnits::default();
-    metric
+    pmdaMetric {
+        m_desc: pmDesc {
+            pmid: pm_id(0, 1),
+            type_: PM_TYPE_U64 as i32,
+            indom: PM_INDOM_NULL,
+            sem: PM_SEM_INSTANT as i32,
+            units: pmUnits::default(),
+        },
+        ..Default::default()
+    }
 }
 
 fn count_up1(atom: &mut AtomValue) -> i32 {
@@ -35,7 +39,7 @@ fn count_up1(atom: &mut AtomValue) -> i32 {
     *cnt += 1;
 
     atom.set_u64(*cnt);
-    return 0;
+    0
 }
 
 fn count_up2(atom: &mut AtomValue) -> i32 {
@@ -43,7 +47,7 @@ fn count_up2(atom: &mut AtomValue) -> i32 {
     *cnt += 2;
 
     atom.set_u64(*cnt);
-    return 0;
+    0
 }
 
 extern "C" fn counter_fetch(metric: *mut pmdaMetric, inst: u32, atom: *mut pmAtomValue) -> i32 {

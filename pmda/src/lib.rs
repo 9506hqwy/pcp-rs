@@ -246,10 +246,11 @@ pub fn pmdaopt_username() -> pmLongOptions {
 }
 
 pub fn pmda_options(short_options: &CStr, long_options: &mut [pmLongOptions]) -> pmdaOptions {
-    let mut opt = pmdaOptions::default();
-    opt.short_options = short_options.as_ptr();
-    opt.long_options = long_options.as_mut_ptr();
-    opt
+    pmdaOptions {
+        short_options: short_options.as_ptr(),
+        long_options: long_options.as_mut_ptr(),
+        ..Default::default()
+    }
 }
 
 pub fn pmda_print_usage(options: &mut pmdaOptions) {
@@ -296,7 +297,7 @@ mod tests {
     use super::*;
 
     extern "C" fn test_fetch(_: *mut pmdaMetric, _: u32, _: *mut pmAtomValue) -> i32 {
-        return 0;
+        0
     }
 
     #[test]
@@ -311,13 +312,16 @@ mod tests {
 
         dispatch.set_fetch_callback(Some(test_fetch));
 
-        let mut metric = pmdaMetric::default();
-        metric.m_desc = pmDesc::default();
-        metric.m_desc.pmid = pmID::default();
-        metric.m_desc.type_ = PM_TYPE_U64 as i32;
-        metric.m_desc.indom = PM_INDOM_NULL;
-        metric.m_desc.sem = PM_SEM_INSTANT as i32;
-        metric.m_desc.units = pmUnits::default();
+        let metric = pmdaMetric {
+            m_desc: pmDesc {
+                pmid: pmID::default(),
+                type_: PM_TYPE_U64 as i32,
+                indom: PM_INDOM_NULL,
+                sem: PM_SEM_INSTANT as i32,
+                units: pmUnits::default(),
+            },
+            ..Default::default()
+        };
 
         let mut metrics = vec![metric];
 
