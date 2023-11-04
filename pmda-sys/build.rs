@@ -39,7 +39,7 @@ fn main() {
         .rustified_enum(".*")
         .blocklist_item("IPPORT_.*")
         .derive_default(true)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unbale to generate bindings");
 
