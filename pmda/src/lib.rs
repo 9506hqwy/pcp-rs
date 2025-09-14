@@ -13,7 +13,7 @@ pub struct Pmda {
 
 impl Pmda {
     pub fn new(prog_name: &str) -> Result<Self, NulError> {
-        let log_file = format!("{}.log", prog_name);
+        let log_file = format!("{prog_name}.log");
 
         let mut help_path = PathBuf::from(get_config("PCP_PMDAS_DIR").unwrap());
         help_path.push(prog_name);
